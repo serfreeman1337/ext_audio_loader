@@ -8,8 +8,8 @@ function descriptor()
 	return {
 		title = "Ext audio and subtitles loader",
 		author = "serfreeman1337",
-		shortdesc = "Autoload external audio track and subtitle file",
-		description = "This script searches in folder for audio and subtitle files for video and loads them",
+		shortdesc = "Autoload external audio track and subtitles",
+		description = "This script searches in folder for audio and subtitles for video and loads them",
 		version = "1.0",
 		capabilities = {"input-listener"}
 	}

@@ -2,7 +2,7 @@
 This script searches in folder for audio tracks and subtitles for video and loads them
 
 ### Usage
-* Enable "Autoload external audio track and subtitle file" in "View" menu
+* Enable "Autoload external audio track and subtitles" in "View" menu
 * Play video file
 
 ### Known bugs
