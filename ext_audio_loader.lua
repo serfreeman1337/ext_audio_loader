@@ -10,7 +10,8 @@ function descriptor()
 		author = "serfreeman1337",
 		shortdesc = "Autoload external audio track and subtitles",
 		description = "This script searches in folder for audio and subtitles for video and loads them",
-		version = "1.0",
+		url = "https://github.com/serfreeman1337/ext_audio_loader",
+		version = "1.1",
 		capabilities = {"input-listener"}
 	}
 end
@@ -56,9 +57,7 @@ function input_changed()
 
 	local uri = vlc.strings.decode_uri(vlc.input.item():uri())
 
-	if not uri:match("file:///") then
-		return
-	end
+	if not uri:match("file:///") then return end
 
 	local file = vlc.input.item():metas()["filename"]
 	local name = file:sub(0, (file:len() - getFileExtension(file):len()))
@@ -67,7 +66,7 @@ function input_changed()
 	if is_linux then
 		dir = uri:sub(8, (uri:len() - file:len()  - 1))
 	else
-		dir = uri:sub(9, (uri:len() - file:len())):gsub("/", "\\")
+		dir = uri:sub(9, (uri:len() - file:len() - 1))
 	end
 
 	local path = dir .. file;
@@ -76,49 +75,19 @@ function input_changed()
 	local found_audio = false
 	local found_sub = false
 
-	local cmd = ""
-	if is_linux then
-		-- find "/media/serfreeman1337/Datacore/anilib/Mirai Nikki [BDRip 720]" -name "*\[Sensetivity-raws\] Mirai Nikki - 11*"
-		cmd = [[find "]] .. dir .. [[" -name "*]] .. name:gsub("%[", "\\["):gsub("%]", "\\]") .. [[*"]] -- lol linux ???
+	local r = search(dir, name)
 
-		for exclude in exclude_with:gmatch("%S+") do
-			cmd = cmd .. [[ | grep -v "]] .. exclude .. [["]]
-		end
-	else
-		-- dir /s /b "E:\anilib\Mirai Nikki [BDRip 720]\*[Sensetivity-raws] Mirai Nikki - 13*"
-		cmd = [[dir /s /b "]] .. dir .. [[*]] .. name .. [[*"]]
+	if r ~= nil then
+		for k, v in pairs(r) do
+			-- fix windows path
+			if not is_linux then v = v:gsub("/", "\\") end
 
-		for exclude in exclude_with:gmatch("%S+") do
-			cmd = cmd .. [[ | find /V "]] .. exclude .. [["]]
-		end
-	end
-
-	for f in io.popen(cmd):lines() do
-		if not is_linux then
-			-- windows encoding fix
-			f = vlc.strings.from_charset("cp866", f)
-		end
-
-		-- skip current file
-		if f ~= path then
-			local f_ext = getFileExtension(f)
-
-			-- search for external audio tracks
-			for a_ext in audio_ext:gmatch("%S+") do
-				if f_ext:find(a_ext) then
-					found_audio = true
-					table.insert(opts, "input-slave=" .. vlc.strings.make_uri(f))
-					break
-				end
-			end
-
-			-- search for sub files
-			for a_ext in sub_ext:gmatch("%S+") do
-				if f_ext:find(a_ext) then
-					found_sub = true
-					table.insert(opts, "sub-file=" .. f)
-					break
-				end
+			if k == "extaudio" then
+				found_audio = true
+				table.insert(opts, "input-slave=" .. vlc.strings.make_uri(v))
+			elseif k == "subtitles" then
+				found_sub = true
+				table.insert(opts, "sub-file=" .. v)
 			end
 		end
 	end
@@ -131,9 +100,10 @@ function input_changed()
 	local total_audio = 0
 	local total_sub = 0
 	for k, v in pairs(vlc.input.item():info()) do
-		if v["Type"] == "Audio" then
+		-- TODO: figure out how to get input streams info
+		if (v["Type"] == "Audio" or v["Тип"] == "Аудио") then
 			total_audio = total_audio + 1
-		elseif v["Type"] == "Subtitle" then
+		elseif (v["Type"] == "Subtitle" or v["Тип"] == "Субтитры") then
 			total_sub = total_sub + 1
 		end
 	end
@@ -144,6 +114,8 @@ function input_changed()
 	end
 
 	if found_audio then
+		-- what
+		if total_audio == 0 then total_audio = 1 end
 		-- select external audio track
 		table.insert(opts, "audio-track=" .. total_audio)
 	end
@@ -165,4 +137,72 @@ end
 
 function getFileExtension(url)
 	return url:match("^.+(%..+)$")
+end
+
+function is_dir(path)
+	if is_linux then
+		local f = io.open(path, "r")
+		local ok, err, code = f:read(1)
+		f:close()
+		return code == 21
+	else -- dir is nil on windows
+		local f = vlc.io.open(path, "r")
+		if f == nil then
+			return true
+		else
+			f:close()
+			return false
+		end
+	end
+end
+
+function is_matched(name, with)
+	for what in with:gmatch("%S+") do
+		if name:find(what, 0, true) ~= nil then
+			return true	end
+	end
+	return false
+end
+
+function search(dir, name)
+	local dr = vlc.io.readdir(dir)
+
+	if dr == nil then
+		return nil
+	end
+
+	local r = {}
+	local found = false
+	local path = ""
+
+	for k, content in pairs(dr) do
+		-- skip top level and excluded dirs
+		if content ~= "." and content ~= ".." and not is_matched(content, exclude_with) then
+			path = dir .. [[/]] .. content
+
+			if not is_dir(path) then
+				-- look for file with the same name
+				if content:find(name, 0, true) then
+
+					-- search for external audio tracks
+					if is_matched(content, audio_ext) then
+						r["extaudio"] = path
+						found = true
+					elseif is_matched(content, sub_ext) then
+						r["subtitles"] = path
+						found = true
+					end
+				end
+			else -- recursive directory scan
+				local rr = search(path, name)
+
+				if rr ~= nil then
+					for k, v in pairs(rr) do r[k] = v end
+					found = true
+				end
+			end
+		end
+	end
+
+	if found then return r else return nil end
 end

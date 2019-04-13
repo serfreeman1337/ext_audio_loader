@@ -1,12 +1,19 @@
 ### Description
-This script searches in folder for audio tracks and subtitles for video and loads them
+VLC extension for autoload external audio track and subtitles shared with video file.
+Audio track and subtitles should have same name as video. Dir example:
+* show_01.mkv
+* Your Dub\show_01.mka
+* Subs\Signs\show_01.ass
+
+Allowed extensions can be changed in source code.
 
 ### Usage
-* Enable "Autoload external audio track and subtitles" in "View" menu
-* Play video file
+* Enable "Autoload external audio track and subtitles" in "View" menu.
+* Play video file.
 
 ### Known bugs
-* Messed up playlist order (you can still navigate using buttons as before)
+* Messed up playlist order (you can still navigate using next/prev buttons as before).
+* Auto select only works with english and russian interface language.
 
 ### Installation:
 Copy the .lua file into appropriate lua extensions folder (Create directory if it does not exist!):
